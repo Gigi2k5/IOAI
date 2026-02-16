@@ -9,7 +9,7 @@ from app import create_app, db
 env = os.environ.get('FLASK_ENV', 'development')
 
 # Créer l'application
-app = create_app('default' if env == 'production' else env)
+app = create_app(env if env in ('production', 'development', 'testing') else 'default')
 
 # Initialisation en production
 with app.app_context():
