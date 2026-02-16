@@ -1,102 +1,99 @@
 """
-Service d'envoi d'emails via SMTP
+Service d'envoi d'emails via API Brevo (HTTP)
 """
-import smtplib
+import json
 import logging
 import threading
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
+import urllib.request
+import urllib.error
 from flask import current_app
 
 logger = logging.getLogger(__name__)
 
+BREVO_API_URL = "https://api.brevo.com/v3/smtp/email"
+
 
 class EmailService:
-    """Gère l'envoi d'emails via SMTP"""
+    """Gère l'envoi d'emails via l'API Brevo"""
     
     @staticmethod
-    def _get_smtp_config():
-        """Récupère la configuration SMTP depuis les variables d'environnement"""
-        return {
-            'server': current_app.config.get('MAIL_SERVER', 'smtp.gmail.com'),
-            'port': current_app.config.get('MAIL_PORT', 587),
-            'username': current_app.config.get('MAIL_USERNAME'),
-            'password': current_app.config.get('MAIL_PASSWORD'),
-            'sender': current_app.config.get('MAIL_DEFAULT_SENDER'),
-            'use_tls': current_app.config.get('MAIL_USE_TLS', True)
+    def _send_email_sync(api_key, sender_email, sender_name, to_email, subject, html_content, text_content=None):
+        """Envoi via API Brevo dans un thread séparé"""
+        payload = {
+            "sender": {
+                "name": sender_name,
+                "email": sender_email
+            },
+            "to": [
+                {"email": to_email}
+            ],
+            "subject": subject,
+            "htmlContent": html_content
         }
-    
-    @staticmethod
-    def _send_email_sync(smtp_config, to_email, msg_string):
-        """Envoi synchrone dans un thread séparé"""
+        
+        if text_content:
+            payload["textContent"] = text_content
+        
+        data = json.dumps(payload).encode("utf-8")
+        
+        req = urllib.request.Request(
+            BREVO_API_URL,
+            data=data,
+            headers={
+                "accept": "application/json",
+                "api-key": api_key,
+                "content-type": "application/json"
+            },
+            method="POST"
+        )
+        
         try:
-            with smtplib.SMTP(smtp_config['server'], smtp_config['port'], timeout=30) as server:
-                if smtp_config['use_tls']:
-                    server.starttls()
-                server.login(smtp_config['username'], smtp_config['password'])
-                server.sendmail(
-                    smtp_config['sender'] or smtp_config['username'],
-                    to_email,
-                    msg_string
-                )
-            logger.info(f"Email envoyé avec succès à {to_email}")
+            with urllib.request.urlopen(req, timeout=30) as response:
+                result = json.loads(response.read().decode("utf-8"))
+                logger.info(f"Email envoyé avec succès à {to_email} - messageId: {result.get('messageId')}")
+        except urllib.error.HTTPError as e:
+            body = e.read().decode("utf-8")
+            logger.error(f"Erreur API Brevo ({e.code}) pour {to_email}: {body}")
         except Exception as e:
             logger.error(f"Erreur envoi email à {to_email}: {e}")
     
     @staticmethod
     def send_email(to_email, subject, html_content, text_content=None):
         """
-        Envoie un email de manière asynchrone (non bloquant)
-        
-        Args:
-            to_email: Adresse du destinataire
-            subject: Sujet de l'email
-            html_content: Contenu HTML
-            text_content: Contenu texte (fallback)
-            
-        Returns:
-            tuple: (success, error_message)
+        Envoie un email de manière asynchrone via Brevo
         """
-        config = EmailService._get_smtp_config()
+        api_key = current_app.config.get('BREVO_API_KEY')
+        sender_email = current_app.config.get('MAIL_DEFAULT_SENDER') or current_app.config.get('MAIL_USERNAME')
+        sender_name = current_app.config.get('MAIL_SENDER_NAME', 'Olympiades IA Bénin')
         
-        if not config['username'] or not config['password']:
-            logger.warning("Configuration SMTP manquante - email non envoyé")
+        if not api_key:
+            logger.warning("Clé API Brevo manquante - email non envoyé")
             return False, "Configuration email non configurée"
         
+        if not sender_email:
+            logger.warning("Email expéditeur manquant - email non envoyé")
+            return False, "Email expéditeur non configuré"
+        
         try:
-            # Créer le message
-            msg = MIMEMultipart('alternative')
-            msg['Subject'] = subject
-            msg['From'] = config['sender'] or config['username']
-            msg['To'] = to_email
-            
-            # Ajouter le contenu texte et HTML
-            if text_content:
-                msg.attach(MIMEText(text_content, 'plain', 'utf-8'))
-            msg.attach(MIMEText(html_content, 'html', 'utf-8'))
-            
-            # Envoyer dans un thread séparé pour ne pas bloquer le worker
             thread = threading.Thread(
                 target=EmailService._send_email_sync,
-                args=(config, to_email, msg.as_string())
+                args=(api_key, sender_email, sender_name, to_email, subject, html_content, text_content)
             )
             thread.daemon = True
             thread.start()
             
-            logger.info(f"Email en cours d'envoi à {to_email} (async)")
+            logger.info(f"Email en cours d'envoi à {to_email} (async via Brevo)")
             return True, None
             
         except Exception as e:
-            logger.error(f"Erreur inattendue lors de la préparation de l'email: {e}")
+            logger.error(f"Erreur préparation email: {e}")
             return False, f"Erreur: {str(e)}"
     
     @staticmethod
     def send_otp_email(to_email, otp_code, first_name=None):
-        """
-        Envoie le code OTP de vérification d'email
-        """
+        """Envoie le code OTP de vérification d'email"""
         name = first_name or "Candidat"
-        subject = f"🔐 Code de vérification - Olympiades IA Bénin 2026"
+        subject = "🔐 Code de vérification - Olympiades IA Bénin 2026"
         
         html_content = f"""
 <!DOCTYPE html>
@@ -158,9 +155,7 @@ Olympiades Internationales d'Intelligence Artificielle - Bénin 2026
     
     @staticmethod
     def send_password_reset_email(to_email, reset_token, first_name=None):
-        """
-        Envoie le lien de réinitialisation de mot de passe
-        """
+        """Envoie le lien de réinitialisation de mot de passe"""
         name = first_name or "Candidat"
         subject = "🔑 Réinitialisation de mot de passe - Olympiades IA Bénin 2026"
         
@@ -235,9 +230,7 @@ Olympiades Internationales d'Intelligence Artificielle - Bénin 2026
     
     @staticmethod
     def send_welcome_email(to_email, first_name):
-        """
-        Envoie un email de bienvenue après vérification
-        """
+        """Envoie un email de bienvenue après vérification"""
         subject = "🎉 Bienvenue aux Olympiades IA Bénin 2026 !"
         
         frontend_url = current_app.config.get('FRONTEND_URL', 'http://localhost:5173')
