@@ -44,10 +44,10 @@ def create_app(config_name='default'):
     
     # Configurer CORS
     CORS(app, 
-         origins=app.config['CORS_ORIGINS'],
-         supports_credentials=True,
-         allow_headers=['Content-Type', 'Authorization'],
-         methods=['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'])
+     origins=["https://ioai.vercel.app", "http://localhost:5173"],
+     supports_credentials=True,
+     allow_headers=['Content-Type', 'Authorization'],
+     methods=['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'])
     
     # === Callbacks JWT ===
     
