@@ -48,6 +48,16 @@ def create_app(config_name='default'):
      supports_credentials=True,
      allow_headers=['Content-Type', 'Authorization'],
      methods=['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'])
+
+    @app.after_request
+    def after_request(response):
+        origin = response.headers.get('Access-Control-Allow-Origin')
+        if not origin:
+            response.headers['Access-Control-Allow-Origin'] = 'https://ioai.vercel.app'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, PATCH, OPTIONS'
+        response.headers['Access-Control-Allow-Credentials'] = 'true'
+        return response
     
     # === Callbacks JWT ===
     
