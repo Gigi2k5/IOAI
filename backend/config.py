@@ -31,6 +31,14 @@ class Config:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_ECHO = False
     
+    # Options du pool de connexions - évite les erreurs SSL avec PostgreSQL
+    SQLALCHEMY_ENGINE_OPTIONS = {
+        'pool_pre_ping': True,
+        'pool_recycle': 300,
+        'pool_size': 5,
+        'max_overflow': 10,
+    }
+    
     # Configuration CORS - IMPORTANT pour le déploiement
     cors_origins = os.environ.get('CORS_ORIGINS', 'http://localhost:5173,http://localhost:3000')
     CORS_ORIGINS = [origin.strip() for origin in cors_origins.split(',') if origin.strip()]
@@ -60,11 +68,9 @@ class DevelopmentConfig(Config):
     DEBUG = True
     SQLALCHEMY_ECHO = False
     
-    # En dev, on peut utiliser SQLite si pas de PostgreSQL
     @staticmethod
     def init_app(app):
         db_url = app.config.get('SQLALCHEMY_DATABASE_URI', '')
-        # Corriger postgres:// en postgresql://
         if db_url.startswith('postgres://'):
             app.config['SQLALCHEMY_DATABASE_URI'] = db_url.replace('postgres://', 'postgresql://', 1)
 
@@ -75,7 +81,6 @@ class ProductionConfig(Config):
     
     @staticmethod
     def init_app(app):
-        # Render et autres services utilisent postgres:// mais SQLAlchemy veut postgresql://
         db_url = app.config.get('SQLALCHEMY_DATABASE_URI', '')
         if db_url.startswith('postgres://'):
             app.config['SQLALCHEMY_DATABASE_URI'] = db_url.replace('postgres://', 'postgresql://', 1)
