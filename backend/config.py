@@ -51,12 +51,16 @@ class Config:
     MAX_IMAGE_SIZE = 5 * 1024 * 1024   # 5 MB
     MAX_DOC_SIZE = 10 * 1024 * 1024    # 10 MB
     
-    # Configuration Email SMTP
+    # Configuration Email - Brevo (API HTTP)
+    BREVO_API_KEY = os.environ.get('BREVO_API_KEY')
+    MAIL_DEFAULT_SENDER = os.environ.get('MAIL_DEFAULT_SENDER')
+    MAIL_SENDER_NAME = os.environ.get('MAIL_SENDER_NAME', 'Olympiades IA Bénin')
+    
+    # Anciennes variables SMTP (gardées pour compatibilité locale)
     MAIL_SERVER = os.environ.get('MAIL_SERVER', 'smtp.gmail.com')
     MAIL_PORT = int(os.environ.get('MAIL_PORT', 587))
     MAIL_USERNAME = os.environ.get('MAIL_USERNAME')
     MAIL_PASSWORD = os.environ.get('MAIL_PASSWORD')
-    MAIL_DEFAULT_SENDER = os.environ.get('MAIL_DEFAULT_SENDER')
     MAIL_USE_TLS = os.environ.get('MAIL_USE_TLS', 'True').lower() == 'true'
     
     # URL du frontend (pour les liens dans les emails)
