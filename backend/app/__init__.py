@@ -44,10 +44,15 @@ def create_app(config_name='default'):
     
     # Configurer CORS
     CORS(app, 
-     origins=["https://ioai.vercel.app", "http://localhost:5173"],
+     origins=["https://ioai.vercel.app", "https://ioai1.vercel.app", "http://localhost:5173"],
      supports_credentials=True,
      allow_headers=['Content-Type', 'Authorization'],
      methods=['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'])
+```
+
+**Option 2 : Mettre à jour la variable `CORS_ORIGINS`** sur Render :
+```
+https://ioai.vercel.app,https://ioai1.vercel.app,http://localhost:5173
 
     @app.after_request
     def after_request(response):
