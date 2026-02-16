@@ -1,0 +1,22 @@
+# Configuration Render pour le backend Flask
+# Documentation: https://render.com/docs/blueprint-spec
+
+services:
+  - type: web
+    name: olympiades-ia-api
+    env: python
+    region: frankfurt  # Proche de l'Afrique
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn --bind 0.0.0.0:$PORT run:app
+    envVars:
+      - key: FLASK_ENV
+        value: production
+      - key: SECRET_KEY
+        generateValue: true
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        value: sqlite:///instance/olympiades.db
+      - key: CORS_ORIGINS
+        sync: false  # À configurer manuellement après déploiement du frontend

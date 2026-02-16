@@ -1,0 +1,28 @@
+# Framework
+Flask==3.0.0
+Flask-SQLAlchemy==3.1.1
+Flask-Migrate==4.0.5
+Flask-JWT-Extended==4.6.0
+Flask-CORS==4.0.0
+Flask-Limiter==3.5.0
+
+# Base de données
+SQLAlchemy==2.0.23
+psycopg2-binary==2.9.9
+
+# Utilitaires
+python-dotenv==1.0.0
+email-validator==2.1.0
+
+# Sécurité
+Werkzeug==3.0.1
+bcrypt==4.1.1
+
+# Production
+gunicorn==21.2.0
+
+# Export/Import Excel
+openpyxl==3.1.2
+
+# Génération PDF
+reportlab==4.1.0

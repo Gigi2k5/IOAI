@@ -1,0 +1,11 @@
+{
+  "edition": "2024",
+  "lieu": "Burgas, Bulgarie",
+  "images": [
+    { "src": "img_1.jpg", "caption": "" },
+    { "src": "img_2.jpg", "caption": "" },
+    { "src": "img_3.jpg", "caption": "" },
+    { "src": "img_4.jpg", "caption": "" },
+    { "src": "img_5.jpg", "caption": "" }
+  ]
+}
