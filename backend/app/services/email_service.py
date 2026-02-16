@@ -3,6 +3,7 @@ Service d'envoi d'emails via SMTP
 """
 import smtplib
 import logging
+import threading
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from flask import current_app
@@ -26,9 +27,26 @@ class EmailService:
         }
     
     @staticmethod
+    def _send_email_sync(smtp_config, to_email, msg_string):
+        """Envoi synchrone dans un thread séparé"""
+        try:
+            with smtplib.SMTP(smtp_config['server'], smtp_config['port'], timeout=30) as server:
+                if smtp_config['use_tls']:
+                    server.starttls()
+                server.login(smtp_config['username'], smtp_config['password'])
+                server.sendmail(
+                    smtp_config['sender'] or smtp_config['username'],
+                    to_email,
+                    msg_string
+                )
+            logger.info(f"Email envoyé avec succès à {to_email}")
+        except Exception as e:
+            logger.error(f"Erreur envoi email à {to_email}: {e}")
+    
+    @staticmethod
     def send_email(to_email, subject, html_content, text_content=None):
         """
-        Envoie un email
+        Envoie un email de manière asynchrone (non bloquant)
         
         Args:
             to_email: Adresse du destinataire
@@ -57,38 +75,25 @@ class EmailService:
                 msg.attach(MIMEText(text_content, 'plain', 'utf-8'))
             msg.attach(MIMEText(html_content, 'html', 'utf-8'))
             
-            # Connexion et envoi
-            with smtplib.SMTP(config['server'], config['port']) as server:
-                if config['use_tls']:
-                    server.starttls()
-                server.login(config['username'], config['password'])
-                server.sendmail(config['sender'] or config['username'], to_email, msg.as_string())
+            # Envoyer dans un thread séparé pour ne pas bloquer le worker
+            thread = threading.Thread(
+                target=EmailService._send_email_sync,
+                args=(config, to_email, msg.as_string())
+            )
+            thread.daemon = True
+            thread.start()
             
-            logger.info(f"Email envoyé avec succès à {to_email}")
+            logger.info(f"Email en cours d'envoi à {to_email} (async)")
             return True, None
             
-        except smtplib.SMTPAuthenticationError as e:
-            logger.error(f"Erreur d'authentification SMTP: {e}")
-            return False, "Erreur d'authentification email"
-        except smtplib.SMTPException as e:
-            logger.error(f"Erreur SMTP: {e}")
-            return False, f"Erreur d'envoi email: {str(e)}"
         except Exception as e:
-            logger.error(f"Erreur inattendue lors de l'envoi d'email: {e}")
+            logger.error(f"Erreur inattendue lors de la préparation de l'email: {e}")
             return False, f"Erreur: {str(e)}"
     
     @staticmethod
     def send_otp_email(to_email, otp_code, first_name=None):
         """
         Envoie le code OTP de vérification d'email
-        
-        Args:
-            to_email: Adresse email du destinataire
-            otp_code: Code OTP à 6 chiffres
-            first_name: Prénom du candidat (optionnel)
-            
-        Returns:
-            tuple: (success, error_message)
         """
         name = first_name or "Candidat"
         subject = f"🔐 Code de vérification - Olympiades IA Bénin 2026"
@@ -155,19 +160,10 @@ Olympiades Internationales d'Intelligence Artificielle - Bénin 2026
     def send_password_reset_email(to_email, reset_token, first_name=None):
         """
         Envoie le lien de réinitialisation de mot de passe
-        
-        Args:
-            to_email: Adresse email du destinataire
-            reset_token: Token de réinitialisation
-            first_name: Prénom du candidat (optionnel)
-            
-        Returns:
-            tuple: (success, error_message)
         """
         name = first_name or "Candidat"
         subject = "🔑 Réinitialisation de mot de passe - Olympiades IA Bénin 2026"
         
-        # URL de réinitialisation (à adapter selon le frontend)
         frontend_url = current_app.config.get('FRONTEND_URL', 'http://localhost:5173')
         reset_url = f"{frontend_url}/reinitialiser-mot-de-passe?token={reset_token}"
         
@@ -241,13 +237,6 @@ Olympiades Internationales d'Intelligence Artificielle - Bénin 2026
     def send_welcome_email(to_email, first_name):
         """
         Envoie un email de bienvenue après vérification
-        
-        Args:
-            to_email: Adresse email du destinataire
-            first_name: Prénom du candidat
-            
-        Returns:
-            tuple: (success, error_message)
         """
         subject = "🎉 Bienvenue aux Olympiades IA Bénin 2026 !"
         
